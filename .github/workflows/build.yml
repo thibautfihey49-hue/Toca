@@ -1,0 +1,58 @@
+name: 📱 Build APK Android
+run-name: Build ${{ github.sha }}
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.3-stable
+  GODOT_TEMPLATES: 4.3.stable
+
+jobs:
+  build-apk:
+    name: Godot → APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 📥 Cloner
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: 📱 Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 🔽 Télécharger Godot + Templates
+        run: |
+          cd $RUNNER_TEMP
+          wget -q "https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}/Godot_v${{ env.GODOT_VERSION }}_linux.x86_64.zip"
+          wget -q "https://github.com/godotengine/godot/releases/download/${{ env.GODOT_VERSION }}/Godot_v${{ env.GODOT_VERSION }}_export_templates.tpz"
+          
+          unzip -q "Godot_v${{ env.GODOT_VERSION }}_linux.x86_64.zip"
+          chmod +x "Godot_v${{ env.GODOT_VERSION }}_linux.x86_64"
+          echo "GODOT_BIN=$RUNNER_TEMP/Godot_v${{ env.GODOT_VERSION }}_linux.x86_64" >> $GITHUB_ENV
+          
+          mkdir -p ~/.local/share/godot/export_templates/${{ env.GODOT_TEMPLATES }}
+          unzip -q "Godot_v${{ env.GODOT_VERSION }}_export_templates.tpz" -d ~/.local/share/godot/export_templates/${{ env.GODOT_TEMPLATES }}
+          echo "${{ env.GODOT_TEMPLATES }}" > ~/.local/share/godot/export_templates/${{ env.GODOT_TEMPLATES }}/version.txt
+
+      - name: 📦 Exporter l'APK
+        run: |
+          mkdir -p build
+          cd godot-project
+          ${{ env.GODOT_BIN }} --headless --export-debug "Android" "../build/MaVilleMonde.apk"
+          ls -la ../build/
+
+      - name: 📤 Uploader l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MaVilleMonde-APK
+          path: build/*.apk
+          retention-days: 30
